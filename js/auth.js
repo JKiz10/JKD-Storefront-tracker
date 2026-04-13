@@ -4,8 +4,8 @@
 const AUTH_KEY = 'jkd_auth_token';
 // SHA-256 of the passkey — change this by running:
 // crypto.subtle.digest('SHA-256', new TextEncoder().encode('YOUR_KEY')).then(b => Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''))
-// Default passkey: "jkd2026"
-const PASSKEY_HASH = '7a5eb124a3c41c328085b3cdd162ad30278e30df3ea4cb6d4cde4b7c59976b65';
+// Default passkey: "JKDTeam"
+const PASSKEY_HASH = '64fc32c9d57bd2230a64943db4940dced7c546d3840a89d0278613f8969f56b1';
 
 const Auth = {
   async hashString(str) {
