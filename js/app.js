@@ -149,6 +149,7 @@ function handleClick(e) {
 
   switch (action) {
     case 'login-submit':
+      e.preventDefault();
       handleLogin();
       break;
 
@@ -280,24 +281,43 @@ function handleClick(e) {
 async function handleLogin() {
   const input = document.getElementById('passkey-input');
   const error = document.getElementById('login-error');
+  const card = document.querySelector('.login-card');
   if (!input) return;
 
   const passkey = input.value.trim();
   if (!passkey) {
-    if (error) error.textContent = 'Please enter a passkey';
+    if (error) {
+      error.textContent = 'Please enter a passkey';
+      error.style.display = 'block';
+    }
+    input.focus();
     return;
   }
 
-  const valid = await Auth.login(passkey);
-  if (valid) {
-    currentView = 'dashboard';
-    renderView();
-  } else {
-    if (error) error.textContent = 'Invalid passkey';
-    input.value = '';
-    input.focus();
-    input.classList.add('shake');
-    setTimeout(() => input.classList.remove('shake'), 500);
+  try {
+    const valid = await Auth.login(passkey);
+    if (valid) {
+      currentView = 'dashboard';
+      app.classList.add('animate-in');
+      setTimeout(() => app.classList.remove('animate-in'), 800);
+      renderView();
+    } else {
+      if (error) {
+        error.textContent = 'Incorrect passkey. Try again.';
+        error.style.display = 'block';
+      }
+      input.value = '';
+      input.focus();
+      if (card) {
+        card.classList.add('shake');
+        setTimeout(() => card.classList.remove('shake'), 500);
+      }
+    }
+  } catch (err) {
+    if (error) {
+      error.textContent = 'Authentication error. Please try again.';
+      error.style.display = 'block';
+    }
   }
 }
 

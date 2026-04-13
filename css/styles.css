@@ -222,9 +222,15 @@ a:hover { color: var(--white); }
 
 .login-error {
   color: #e74c3c;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
+  font-weight: 500;
   margin-bottom: var(--space-md);
   min-height: 1.2em;
+  display: none;
+  background: rgba(231, 76, 60, 0.08);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(231, 76, 60, 0.2);
 }
 
 .login-btn {

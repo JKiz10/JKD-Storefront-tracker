@@ -27,12 +27,12 @@ function renderLoginScreen() {
         <div class="login-divider"></div>
         <h2 class="login-title">Storefront Tracker</h2>
         <p class="login-subtitle">Enter your passkey to continue</p>
-        <form class="login-form" data-action="login-form">
+        <form class="login-form" data-action="login-form" onsubmit="return false;">
           <div class="login-input-wrap">
             <input type="password" id="passkey-input" class="login-input" placeholder="Passkey" autocomplete="off" autofocus />
           </div>
           <div id="login-error" class="login-error"></div>
-          <button type="button" class="btn btn-primary login-btn" data-action="login-submit">
+          <button type="submit" class="btn btn-primary login-btn" data-action="login-submit">
             Enter
           </button>
         </form>
