@@ -3,7 +3,7 @@
    Inspired by kizzeestudio.com design language
    ══════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+/* Fonts loaded via <link> in index.html — not @import */
 
 :root {
   /* ── Palette ── */
@@ -1222,7 +1222,8 @@ a:hover { color: var(--white); }
    SCROLL ANIMATIONS
    ══════════════════════════════════════ */
 
-.product-row {
+/* Animations only play on initial mount, not re-renders */
+.animate-in .product-row {
   animation: row-in 0.5s var(--ease-out) both;
 }
 
@@ -1231,7 +1232,7 @@ a:hover { color: var(--white); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.project-card {
+.animate-in .project-card {
   animation: card-in 0.6s var(--ease-out) both;
 }
 
@@ -1240,18 +1241,27 @@ a:hover { color: var(--white); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* stagger product rows */
-.product-row:nth-child(1) { animation-delay: 0s; }
-.product-row:nth-child(2) { animation-delay: 0.03s; }
-.product-row:nth-child(3) { animation-delay: 0.06s; }
-.product-row:nth-child(4) { animation-delay: 0.09s; }
-.product-row:nth-child(5) { animation-delay: 0.12s; }
-.product-row:nth-child(6) { animation-delay: 0.15s; }
-.product-row:nth-child(7) { animation-delay: 0.18s; }
-.product-row:nth-child(8) { animation-delay: 0.21s; }
-.product-row:nth-child(9) { animation-delay: 0.24s; }
-.product-row:nth-child(10) { animation-delay: 0.27s; }
-.product-row:nth-child(n+11) { animation-delay: 0.3s; }
+/* stagger product rows — only during initial animation */
+.animate-in .product-row:nth-child(1) { animation-delay: 0s; }
+.animate-in .product-row:nth-child(2) { animation-delay: 0.03s; }
+.animate-in .product-row:nth-child(3) { animation-delay: 0.06s; }
+.animate-in .product-row:nth-child(4) { animation-delay: 0.09s; }
+.animate-in .product-row:nth-child(5) { animation-delay: 0.12s; }
+.animate-in .product-row:nth-child(6) { animation-delay: 0.15s; }
+.animate-in .product-row:nth-child(7) { animation-delay: 0.18s; }
+.animate-in .product-row:nth-child(8) { animation-delay: 0.21s; }
+.animate-in .product-row:nth-child(9) { animation-delay: 0.24s; }
+.animate-in .product-row:nth-child(10) { animation-delay: 0.27s; }
+.animate-in .product-row:nth-child(n+11) { animation-delay: 0.3s; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 /* ══════════════════════════════════════
    RESPONSIVE

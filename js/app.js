@@ -38,6 +38,8 @@ function init() {
 
   if (Auth.isAuthenticated()) {
     currentView = 'dashboard';
+    app.classList.add('animate-in');
+    setTimeout(() => app.classList.remove('animate-in'), 800);
   }
 
   // Listen for storage save errors
@@ -105,7 +107,6 @@ function renderProjectView() {
 }
 
 function navigateTo(view, projectId = null) {
-  // Clean up floating UI before switching views
   closeAllDropdowns();
   closeStatusMenus();
   closeContextMenus();
@@ -114,6 +115,9 @@ function navigateTo(view, projectId = null) {
   currentProjectId = projectId;
   filters = { status: 'all', category: 'all', sort: 'date-desc' };
   renderView();
+  // Play entry animations only on navigation, not on filter/status re-renders
+  app.classList.add('animate-in');
+  setTimeout(() => app.classList.remove('animate-in'), 800);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -244,6 +248,7 @@ function handleClick(e) {
       Store.updateProduct(pid, prodId, { status });
       closeAllDropdowns();
       closeStatusMenus();
+      closeContextMenus();
       renderView();
       break;
     }
