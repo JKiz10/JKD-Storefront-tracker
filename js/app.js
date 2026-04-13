@@ -1,6 +1,7 @@
 // app.js — Main controller, routing, event delegation
 import Store from './store.js';
 import Auth from './auth.js';
+import { fetchAmazonProduct } from './amazon.js';
 import { SEED_PROJECT_NAME, SEED_PRODUCTS, CATEGORIES } from './data.js';
 import {
   renderLoginScreen,
@@ -173,7 +174,10 @@ function handleClick(e) {
       break;
 
     case 'add-from-amazon': {
-      showModal(renderAmazonLinkModal(target.dataset.projectId));
+      const pid = target.dataset.projectId;
+      const project = Store.getProject(pid);
+      const existingCats = project ? [...new Set(project.products.map((p) => p.category))] : [];
+      showModal(renderAmazonLinkModal(pid, existingCats));
       break;
     }
 
@@ -278,6 +282,11 @@ function handleClick(e) {
       break;
     }
 
+    case 'fetch-amazon': {
+      handleFetchAmazon();
+      break;
+    }
+
     case 'close-modal':
       closeModal();
       break;
@@ -327,6 +336,67 @@ async function handleLogin() {
   }
 }
 
+async function handleFetchAmazon() {
+  const urlInput = document.getElementById('amazon-url-input');
+  const status = document.getElementById('fetch-status');
+  const fetchBtn = document.querySelector('[data-action="fetch-amazon"]');
+  const fetchText = fetchBtn?.querySelector('.fetch-text');
+  const fetchLoading = fetchBtn?.querySelector('.fetch-loading');
+
+  if (!urlInput || !urlInput.value.trim()) {
+    if (status) { status.textContent = 'Paste an Amazon URL first'; status.className = 'fetch-status fetch-error'; }
+    return;
+  }
+
+  const url = urlInput.value.trim();
+  if (!url.includes('amazon.com')) {
+    if (status) { status.textContent = 'Please use an Amazon.com link'; status.className = 'fetch-status fetch-error'; }
+    return;
+  }
+
+  // Show loading
+  if (fetchText) fetchText.style.display = 'none';
+  if (fetchLoading) fetchLoading.style.display = 'inline';
+  if (fetchBtn) fetchBtn.disabled = true;
+  if (status) { status.textContent = 'Scanning Amazon...'; status.className = 'fetch-status fetch-loading-text'; }
+
+  try {
+    const product = await fetchAmazonProduct(url);
+    if (product) {
+      // Fill fields
+      const nameInput = document.getElementById('amazon-name');
+      const imageInput = document.getElementById('amazon-image');
+      const priceInput = document.getElementById('amazon-price');
+      const descInput = document.getElementById('amazon-desc');
+      const preview = document.getElementById('amazon-preview');
+      const previewImg = document.getElementById('amazon-preview-img');
+
+      if (nameInput && product.name) nameInput.value = product.name;
+      if (imageInput && product.imageUrl) imageInput.value = product.imageUrl;
+      if (priceInput && product.price) priceInput.value = product.price;
+      if (descInput && product.description) descInput.value = product.description;
+
+      // Show image preview
+      if (preview && previewImg && product.imageUrl) {
+        previewImg.src = product.imageUrl;
+        previewImg.alt = product.name || 'Product';
+        preview.style.display = 'block';
+      }
+
+      if (status) { status.textContent = 'Product info loaded'; status.className = 'fetch-status fetch-success'; }
+    } else {
+      if (status) { status.textContent = 'Could not auto-fill — please enter details manually'; status.className = 'fetch-status fetch-warn'; }
+    }
+  } catch {
+    if (status) { status.textContent = 'Scan failed — enter details manually'; status.className = 'fetch-status fetch-warn'; }
+  }
+
+  // Reset button
+  if (fetchText) fetchText.style.display = 'inline';
+  if (fetchLoading) fetchLoading.style.display = 'none';
+  if (fetchBtn) fetchBtn.disabled = false;
+}
+
 function handleInput(e) {
   const target = e.target;
 
@@ -364,6 +434,18 @@ function handleChange(e) {
   const target = e.target;
   const action = target.dataset.action;
 
+  // Category "New" toggle
+  if (target.id === 'amazon-category') {
+    const newGroup = document.getElementById('new-category-group');
+    if (target.value === '__new__' && newGroup) {
+      newGroup.style.display = 'block';
+      document.getElementById('new-category-input')?.focus();
+    } else if (newGroup) {
+      newGroup.style.display = 'none';
+    }
+    return;
+  }
+
   if (action === 'filter-status') {
     filters.status = target.value;
     renderView();
@@ -400,22 +482,37 @@ function handleSubmit(e) {
 
   if (action === 'save-amazon-link') {
     const pid = form.dataset.projectId;
+    let category = form.category.value;
+
+    // Handle custom category
+    if (category === '__new__') {
+      const newCat = document.getElementById('new-category-input')?.value.trim();
+      if (!newCat) {
+        showToast('Enter a category name');
+        return;
+      }
+      category = newCat;
+    }
+
     const data = {
       name: form.name.value.trim(),
-      description: form.description.value.trim(),
+      description: form.description?.value.trim() || '',
       amazonUrl: form.amazonUrl.value.trim(),
       imageUrl: form.imageUrl?.value.trim() || '',
-      price: form.price.value.trim(),
-      category: form.category.value,
+      price: form.price?.value.trim() || '',
+      category,
       status: 'review',
     };
 
-    if (!data.name || !data.amazonUrl) return;
+    if (!data.name || !data.amazonUrl) {
+      showToast('Name and URL are required');
+      return;
+    }
 
     Store.addProduct(pid, data);
     closeModal();
     renderView();
-    showToast('Product added from Amazon link');
+    showToast('Product added');
     return;
   }
 
@@ -500,6 +597,19 @@ function showModal(html) {
     const input = modalContainer.querySelector('input, textarea, select');
     if (input) input.focus();
   });
+
+  // Bind modal-internal action buttons (since modal stopPropagation blocks document delegation)
+  modalContainer.querySelectorAll('[data-action]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      handleClick(e);
+    });
+  });
+
+  // Category select toggle for new category
+  const catSelect = modalContainer.querySelector('#amazon-category');
+  if (catSelect) {
+    catSelect.addEventListener('change', (e) => handleChange(e));
+  }
 }
 
 function closeModal() {

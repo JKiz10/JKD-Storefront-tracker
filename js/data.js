@@ -4,7 +4,7 @@ const SEED_PROJECT_NAME = 'Amazon Storefront Inventory';
 
 const CATEGORIES = [
   'Plants & Trees',
-  'Loloi Rugs',
+  'Rugs',
   'Throw Pillows',
   'Vases',
   'Throw Blankets',
@@ -60,14 +60,14 @@ const SEED_PRODUCTS = [
     status: 'review',
   },
 
-  // ── Category 2: Loloi Rugs ──
+  // ── Category 2: Rugs ──
   {
     name: 'Loloi Billie Clay/Sage (BIL-03)',
     description: 'Amber Lewis x Loloi — power-loomed polyester, antique distressed, OEKO-TEX certified.',
     amazonUrl: 'https://www.amazon.com/Amber-Loloi-Billie-Collection-BIL-03/dp/B09GV1HQKM',
     imageUrl: 'https://m.media-amazon.com/images/I/61iPHQHw6AL._AC_SL1080_.jpg',
     price: '$140–$350',
-    category: 'Loloi Rugs',
+    category: 'Rugs',
     status: 'review',
   },
   {
@@ -76,7 +76,7 @@ const SEED_PRODUCTS = [
     amazonUrl: 'https://www.amazon.com/Loloi-Billie-Collection-BIL-05-Accent/dp/B09GTXQV3S',
     imageUrl: 'https://m.media-amazon.com/images/I/61OW3fgh3hL._AC_SL1080_.jpg',
     price: '$40–$300',
-    category: 'Loloi Rugs',
+    category: 'Rugs',
     status: 'review',
   },
   {
@@ -85,7 +85,7 @@ const SEED_PRODUCTS = [
     amazonUrl: 'https://www.amazon.com/Loloi-Billie-Collection-BIL-04-Runner/dp/B09GV9GZ56',
     imageUrl: 'https://m.media-amazon.com/images/I/613b1rKTYBL._AC_SL1080_.jpg',
     price: '$40–$300',
-    category: 'Loloi Rugs',
+    category: 'Rugs',
     status: 'review',
   },
   {
@@ -94,7 +94,7 @@ const SEED_PRODUCTS = [
     amazonUrl: 'https://www.amazon.com/s?k=Loloi+Layla+LAY-13+antique+moss',
     imageUrl: '',
     price: '$30–$250',
-    category: 'Loloi Rugs',
+    category: 'Rugs',
     status: 'review',
   },
   {
@@ -103,7 +103,7 @@ const SEED_PRODUCTS = [
     amazonUrl: 'https://www.amazon.com/s?k=Loloi+rug+pad+cushion+grip',
     imageUrl: '',
     price: '$25–$90',
-    category: 'Loloi Rugs',
+    category: 'Rugs',
     status: 'review',
   },
 

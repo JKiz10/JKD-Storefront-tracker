@@ -1186,6 +1186,66 @@ a:hover { color: var(--white); }
   line-height: 1.4;
 }
 
+/* ── Amazon Link Modal Extras ── */
+
+.url-input-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.url-input { flex: 1; }
+
+.btn-fetch {
+  white-space: nowrap;
+  flex-shrink: 0;
+  gap: 5px;
+  border-color: var(--accent-warm) !important;
+  color: var(--accent-warm) !important;
+}
+
+.btn-fetch:hover {
+  background: rgba(181, 149, 86, 0.1) !important;
+}
+
+.btn-fetch:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.fetch-icon { flex-shrink: 0; }
+
+.fetch-status {
+  font-size: 0.75rem;
+  margin-top: 6px;
+  min-height: 1.2em;
+  transition: color var(--duration-fast);
+}
+
+.fetch-loading-text { color: var(--accent-warm); }
+.fetch-success { color: #22c55e; }
+.fetch-error { color: #e74c3c; }
+.fetch-warn { color: var(--text-tertiary); }
+
+.amazon-preview {
+  margin-bottom: var(--space-xl);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 160px;
+}
+
+.amazon-preview-img {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.category-select-wrap { position: relative; }
+
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
 
 .form-check {

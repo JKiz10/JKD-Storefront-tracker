@@ -380,53 +380,66 @@ function renderNewProjectModal() {
   `;
 }
 
-function renderAmazonLinkModal(projectId) {
+function renderAmazonLinkModal(projectId, categories = []) {
+  const allCats = [...new Set([...categories, 'Plants & Trees', 'Rugs', 'Throw Pillows', 'Vases', 'Throw Blankets', 'Baskets & Trays', 'Accent Pieces', 'Lighting', 'Mirrors', 'Wall Art', 'Furniture'])].sort();
+
   return `
     <div class="modal-overlay" data-action="close-modal">
       <div class="modal" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <h2>Add from Amazon Link</h2>
+          <h2>Add from Amazon</h2>
           <button class="btn-icon" data-action="close-modal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <form class="modal-form" data-action="save-amazon-link" data-project-id="${projectId}">
           <div class="form-group">
-            <label>Amazon Product URL *</label>
-            <input type="url" name="amazonUrl" required autofocus placeholder="https://www.amazon.com/..." />
-            <p class="form-hint">Paste the full Amazon product page URL</p>
+            <label>Amazon URL</label>
+            <div class="url-input-row">
+              <input type="url" name="amazonUrl" id="amazon-url-input" required autofocus placeholder="Paste Amazon product link..." class="url-input" />
+              <button type="button" class="btn btn-ghost btn-sm btn-fetch" data-action="fetch-amazon" title="Auto-fill from link">
+                <svg class="fetch-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+                <span class="fetch-text">Scan</span>
+                <span class="fetch-loading" style="display:none">Scanning...</span>
+              </button>
+            </div>
+            <div id="fetch-status" class="fetch-status"></div>
           </div>
+
+          <div id="amazon-preview" class="amazon-preview" style="display:none">
+            <img id="amazon-preview-img" class="amazon-preview-img" src="" alt="" />
+          </div>
+
           <div class="form-group">
             <label>Product Name *</label>
-            <input type="text" name="name" required placeholder="e.g., Faux Olive Tree 6ft" />
+            <input type="text" name="name" id="amazon-name" required placeholder="Auto-fills when you scan..." />
           </div>
           <div class="form-group">
             <label>Image URL</label>
-            <input type="url" name="imageUrl" placeholder="https://m.media-amazon.com/images/..." />
-            <p class="form-hint">Right-click the product image on Amazon and copy image address</p>
+            <input type="url" name="imageUrl" id="amazon-image" placeholder="Auto-fills when you scan..." />
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Price</label>
-              <input type="text" name="price" placeholder="$29.99" />
+              <input type="text" name="price" id="amazon-price" placeholder="Auto-fills..." />
             </div>
             <div class="form-group">
               <label>Category</label>
-              <select name="category">
-                <option value="Plants & Trees">Plants & Trees</option>
-                <option value="Loloi Rugs">Loloi Rugs</option>
-                <option value="Throw Pillows">Throw Pillows</option>
-                <option value="Vases">Vases</option>
-                <option value="Throw Blankets">Throw Blankets</option>
-                <option value="Baskets & Trays">Baskets & Trays</option>
-                <option value="Accent Pieces">Accent Pieces</option>
-                <option value="Uncategorized">Uncategorized</option>
-              </select>
+              <div class="category-select-wrap">
+                <select name="category" id="amazon-category">
+                  ${allCats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+                  <option value="__new__">+ New Category...</option>
+                </select>
+              </div>
             </div>
+          </div>
+          <div id="new-category-group" class="form-group" style="display:none">
+            <label>New Category Name</label>
+            <input type="text" id="new-category-input" placeholder="e.g., Mirrors, Wall Art, Lighting..." />
           </div>
           <div class="form-group">
             <label>Notes</label>
-            <textarea name="description" rows="2" placeholder="Brand, size, color, why you like it..."></textarea>
+            <textarea name="description" id="amazon-desc" rows="2" placeholder="Brand, size, color, why you like it..."></textarea>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button>
