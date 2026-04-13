@@ -15,13 +15,43 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ── Login Screen ──
+
+function renderLoginScreen() {
+  return `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="login-logo">
+          <img src="assets/logo-primary.svg" alt="Jennifer Kizzee Design" class="login-logo-img" />
+        </div>
+        <div class="login-divider"></div>
+        <h2 class="login-title">Storefront Tracker</h2>
+        <p class="login-subtitle">Enter your passkey to continue</p>
+        <form class="login-form" data-action="login-form">
+          <div class="login-input-wrap">
+            <input type="password" id="passkey-input" class="login-input" placeholder="Passkey" autocomplete="off" autofocus />
+          </div>
+          <div id="login-error" class="login-error"></div>
+          <button type="button" class="btn btn-primary login-btn" data-action="login-submit">
+            Enter
+          </button>
+        </form>
+        <div class="login-footer">
+          <img src="assets/logo-monogram.svg" alt="JKD" class="login-monogram" />
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── Dashboard ──
 
-function renderDashboard(projects, stats, handlers) {
+function renderDashboard(projects, stats) {
   return `
     <header class="app-header">
       <div class="header-left">
-        <h1 class="app-title">JKD Storefront Tracker</h1>
+        <img src="assets/logo-monogram.svg" alt="JKD" class="header-monogram" />
+        <h1 class="app-title">Storefront Tracker</h1>
         <span class="header-tag">Amazon Storefront</span>
       </div>
       <div class="header-right">
@@ -31,6 +61,9 @@ function renderDashboard(projects, stats, handlers) {
           <span class="stat-pill stat-shot">${stats.shot} shot</span>
           <span class="stat-pill stat-returned">${stats.returned} returned</span>
         </div>
+        <button class="btn-icon btn-logout" data-action="logout" title="Sign out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
       </div>
     </header>
 
@@ -193,7 +226,7 @@ function renderProjectDetail(project, products, filters) {
 }
 
 function renderProductRow(product, projectId) {
-  const meta = STATUS_META[product.status];
+  const meta = STATUS_META[product.status] ?? STATUS_META['review'];
   const hasUrl = product.amazonUrl && product.amazonUrl.startsWith('http');
   const hasImage = product.imageUrl && product.imageUrl.startsWith('http');
 
@@ -376,7 +409,7 @@ function renderSearchResults(results) {
     <div class="search-result-item" data-action="open-project" data-project-id="${r.projectId}">
       <span class="search-result-name">${escapeHtml(r.name)}</span>
       <span class="search-result-project">${escapeHtml(r.projectName)}</span>
-      <span class="status-badge status-${r.status} status-sm">${STATUS_META[r.status].label}</span>
+      <span class="status-badge status-${r.status} status-sm">${(STATUS_META[r.status] ?? STATUS_META['review']).label}</span>
     </div>
   `
     )
@@ -395,6 +428,7 @@ function renderProjectMenu(projectId) {
 }
 
 export {
+  renderLoginScreen,
   renderDashboard,
   renderProjectCard,
   renderProjectDetail,

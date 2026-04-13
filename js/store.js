@@ -1,5 +1,7 @@
 // store.js — localStorage CRUD + data model
 const STORAGE_KEY = 'jkd_storefront_tracker';
+const SCHEMA_VERSION = 2;
+const VALID_STATUSES = ['review', 'ordered', 'shot', 'returned'];
 
 const Store = {
   _data: null,
@@ -12,21 +14,75 @@ const Store = {
     return new Date().toISOString().slice(0, 10);
   },
 
+  _validateStatus(status) {
+    return VALID_STATUSES.includes(status) ? status : 'review';
+  },
+
+  _sanitizeProduct(product) {
+    return {
+      name: product.name?.trim() || '',
+      description: product.description?.trim() || '',
+      amazonUrl: product.amazonUrl?.trim() || '',
+      imageUrl: product.imageUrl?.trim() || '',
+      price: product.price?.trim() || '',
+      category: product.category || 'Uncategorized',
+      status: this._validateStatus(product.status),
+    };
+  },
+
+  _migrateData(data) {
+    if (!data || !Array.isArray(data.projects)) {
+      return { projects: [], schemaVersion: SCHEMA_VERSION };
+    }
+
+    // Fill missing fields on all products
+    const migrated = {
+      ...data,
+      schemaVersion: SCHEMA_VERSION,
+      projects: data.projects.map((project) => ({
+        id: project.id || this._generateId(),
+        name: project.name || 'Untitled Project',
+        createdAt: project.createdAt || this._today(),
+        products: (project.products || []).map((prod) => ({
+          id: prod.id || this._generateId(),
+          name: prod.name || '',
+          description: prod.description || '',
+          amazonUrl: prod.amazonUrl || '',
+          imageUrl: prod.imageUrl || '',
+          price: prod.price || '',
+          category: prod.category || 'Uncategorized',
+          status: this._validateStatus(prod.status),
+          dateAdded: prod.dateAdded || this._today(),
+          dateStatusChanged: prod.dateStatusChanged || this._today(),
+        })),
+      })),
+    };
+
+    return migrated;
+  },
+
   load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      this._data = raw ? JSON.parse(raw) : null;
-    } catch {
-      this._data = null;
-    }
-    if (!this._data || !Array.isArray(this._data.projects)) {
-      this._data = { projects: [] };
+      const parsed = raw ? JSON.parse(raw) : null;
+      this._data = this._migrateData(parsed);
+    } catch (err) {
+      console.error('[Store] Failed to load data from localStorage:', err);
+      this._data = { projects: [], schemaVersion: SCHEMA_VERSION };
     }
     return this._data;
   },
 
-  save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this._data));
+  _save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this._data));
+      return true;
+    } catch (err) {
+      console.error('[Store] Failed to save:', err);
+      // Dispatch custom event so app.js can show a toast
+      window.dispatchEvent(new CustomEvent('store-save-error', { detail: err.message }));
+      return false;
+    }
   },
 
   isFirstRun() {
@@ -53,20 +109,22 @@ const Store = {
       products: [],
     };
     this._data.projects = [...this._data.projects, project];
-    this.save();
+    this._save();
     return project;
   },
 
   updateProject(id, updates) {
+    if (!this.getProject(id)) return;
     this._data.projects = this._data.projects.map((p) =>
       p.id === id ? { ...p, ...updates } : p
     );
-    this.save();
+    this._save();
   },
 
   deleteProject(id) {
+    if (!this.getProject(id)) return;
     this._data.projects = this._data.projects.filter((p) => p.id !== id);
-    this.save();
+    this._save();
   },
 
   // ── Products ──
@@ -77,15 +135,10 @@ const Store = {
   },
 
   addProduct(projectId, product) {
+    const sanitized = this._sanitizeProduct(product);
     const newProduct = {
+      ...sanitized,
       id: this._generateId(),
-      name: product.name?.trim() || '',
-      description: product.description?.trim() || '',
-      amazonUrl: product.amazonUrl?.trim() || '',
-      imageUrl: product.imageUrl?.trim() || '',
-      price: product.price?.trim() || '',
-      category: product.category || 'Uncategorized',
-      status: product.status || 'ordered',
       dateAdded: this._today(),
       dateStatusChanged: this._today(),
     };
@@ -94,18 +147,22 @@ const Store = {
         ? { ...p, products: [...p.products, newProduct] }
         : p
     );
-    this.save();
+    this._save();
     return newProduct;
   },
 
   updateProduct(projectId, productId, updates) {
-    const statusChanged =
-      updates.status !== undefined &&
-      this.getProduct(projectId, productId)?.status !== updates.status;
+    const existing = this.getProduct(projectId, productId);
+    if (!existing) return;
 
-    const finalUpdates = statusChanged
-      ? { ...updates, dateStatusChanged: this._today() }
-      : updates;
+    const statusChanged =
+      updates.status !== undefined && existing.status !== updates.status;
+
+    const finalUpdates = {
+      ...updates,
+      ...(updates.status !== undefined && { status: this._validateStatus(updates.status) }),
+      ...(statusChanged && { dateStatusChanged: this._today() }),
+    };
 
     this._data.projects = this._data.projects.map((p) =>
       p.id === projectId
@@ -117,7 +174,7 @@ const Store = {
           }
         : p
     );
-    this.save();
+    this._save();
   },
 
   getProduct(projectId, productId) {
@@ -131,28 +188,37 @@ const Store = {
         ? { ...p, products: p.products.filter((prod) => prod.id !== productId) }
         : p
     );
-    this.save();
+    this._save();
   },
 
   bulkAddProducts(projectId, products) {
-    const newProducts = products.map((product) => ({
-      id: this._generateId(),
-      name: product.name?.trim() || '',
-      description: product.description?.trim() || '',
-      amazonUrl: product.amazonUrl?.trim() || '',
-      imageUrl: product.imageUrl?.trim() || '',
-      price: product.price?.trim() || '',
-      category: product.category || 'Uncategorized',
-      status: product.status || 'ordered',
-      dateAdded: this._today(),
-      dateStatusChanged: this._today(),
-    }));
+    const existing = this.getProducts(projectId);
+    const existingNames = new Set(
+      existing.map((p) => p.name.toLowerCase().replace(/\s+/g, ' '))
+    );
+
+    const unique = products.filter(
+      (p) => !existingNames.has((p.name?.trim() || '').toLowerCase().replace(/\s+/g, ' '))
+    );
+
+    if (unique.length === 0) return [];
+
+    const newProducts = unique.map((product) => {
+      const sanitized = this._sanitizeProduct(product);
+      return {
+        ...sanitized,
+        id: this._generateId(),
+        dateAdded: this._today(),
+        dateStatusChanged: this._today(),
+      };
+    });
+
     this._data.projects = this._data.projects.map((p) =>
       p.id === projectId
         ? { ...p, products: [...p.products, ...newProducts] }
         : p
     );
-    this.save();
+    this._save();
     return newProducts;
   },
 
@@ -210,8 +276,8 @@ const Store = {
   },
 
   resetData() {
-    this._data = { projects: [] };
-    this.save();
+    this._data = { projects: [], schemaVersion: SCHEMA_VERSION };
+    this._save();
   },
 };
 

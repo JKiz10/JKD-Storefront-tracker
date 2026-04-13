@@ -1,7 +1,9 @@
 // app.js — Main controller, routing, event delegation
 import Store from './store.js';
+import Auth from './auth.js';
 import { SEED_PROJECT_NAME, SEED_PRODUCTS, CATEGORIES } from './data.js';
 import {
+  renderLoginScreen,
   renderDashboard,
   renderProjectDetail,
   renderProductModal,
@@ -14,7 +16,12 @@ import {
 const app = document.getElementById('app');
 const modalContainer = document.getElementById('modal-container');
 
-let currentView = 'dashboard'; // 'dashboard' | 'project'
+if (!app || !modalContainer) {
+  document.body.innerHTML = '<div style="padding:40px;color:#e74c3c;font-family:sans-serif"><h1>Error</h1><p>App container not found. Check index.html has #app and #modal-container.</p></div>';
+  throw new Error('Missing #app or #modal-container');
+}
+
+let currentView = 'login'; // 'login' | 'dashboard' | 'project'
 let currentProjectId = null;
 let filters = { status: 'all', category: 'all', sort: 'date-desc' };
 let searchDebounce = null;
@@ -24,11 +31,19 @@ let searchDebounce = null;
 function init() {
   Store.load();
 
-  // Seed data on first run
   if (Store.isFirstRun()) {
     const project = Store.createProject(SEED_PROJECT_NAME);
     Store.bulkAddProducts(project.id, SEED_PRODUCTS);
   }
+
+  if (Auth.isAuthenticated()) {
+    currentView = 'dashboard';
+  }
+
+  // Listen for storage save errors
+  window.addEventListener('store-save-error', () => {
+    showToast('Failed to save — storage may be full');
+  });
 
   renderView();
   bindGlobalEvents();
@@ -37,7 +52,9 @@ function init() {
 // ── Routing ──
 
 function renderView() {
-  if (currentView === 'dashboard') {
+  if (currentView === 'login') {
+    app.innerHTML = renderLoginScreen();
+  } else if (currentView === 'dashboard') {
     renderDashboardView();
   } else if (currentView === 'project' && currentProjectId) {
     renderProjectView();
@@ -59,7 +76,6 @@ function renderProjectView() {
 
   let products = [...project.products];
 
-  // Filter
   if (filters.status !== 'all') {
     products = products.filter((p) => p.status === filters.status);
   }
@@ -67,7 +83,6 @@ function renderProjectView() {
     products = products.filter((p) => p.category === filters.category);
   }
 
-  // Sort
   switch (filters.sort) {
     case 'date-desc':
       products.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
@@ -90,6 +105,11 @@ function renderProjectView() {
 }
 
 function navigateTo(view, projectId = null) {
+  // Clean up floating UI before switching views
+  closeAllDropdowns();
+  closeStatusMenus();
+  closeContextMenus();
+
   currentView = view;
   currentProjectId = projectId;
   filters = { status: 'all', category: 'all', sort: 'date-desc' };
@@ -106,7 +126,6 @@ function bindGlobalEvents() {
   document.addEventListener('submit', handleSubmit);
   document.addEventListener('keydown', handleKeydown);
 
-  // Close dropdowns on outside click
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.status-dropdown-wrap') && !e.target.closest('.status-dropdown-floating')) {
       closeAllDropdowns();
@@ -125,6 +144,16 @@ function handleClick(e) {
   const action = target.dataset.action;
 
   switch (action) {
+    case 'login-submit':
+      handleLogin();
+      break;
+
+    case 'logout':
+      Auth.logout();
+      currentView = 'login';
+      renderView();
+      break;
+
     case 'new-project':
       showModal(renderNewProjectModal());
       break;
@@ -139,7 +168,12 @@ function handleClick(e) {
 
     case 'import-seed': {
       const pid = target.dataset.projectId;
-      Store.bulkAddProducts(pid, SEED_PRODUCTS);
+      const added = Store.bulkAddProducts(pid, SEED_PRODUCTS);
+      if (added.length === 0) {
+        showToast('All items already imported');
+      } else {
+        showToast(`${added.length} items imported`);
+      }
       renderView();
       break;
     }
@@ -189,12 +223,6 @@ function handleClick(e) {
       closeStatusMenus();
 
       const prodId = target.dataset.productId;
-      const productRow = target.closest('.product-row');
-      const projectId = productRow
-        ? productRow.querySelector('[data-project-id]')?.dataset.projectId
-        : currentProjectId;
-
-      // Get all status options for this product from the inline dropdown
       const inlineDropdown = document.getElementById(`status-dropdown-${prodId}`);
       if (!inlineDropdown) break;
 
@@ -215,6 +243,7 @@ function handleClick(e) {
       const status = target.dataset.status;
       Store.updateProduct(pid, prodId, { status });
       closeAllDropdowns();
+      closeStatusMenus();
       renderView();
       break;
     }
@@ -226,7 +255,6 @@ function handleClick(e) {
       const rect = target.getBoundingClientRect();
       const menu = document.createElement('div');
       menu.className = 'context-menu';
-      menu.id = `project-menu-${pid}`;
       menu.style.position = 'fixed';
       menu.style.top = `${rect.bottom + 4}px`;
       menu.style.left = `${rect.right - 140}px`;
@@ -241,16 +269,36 @@ function handleClick(e) {
     case 'close-modal':
       closeModal();
       break;
+  }
+}
 
-    case 'global-search':
-      break; // handled by input event
+async function handleLogin() {
+  const input = document.getElementById('passkey-input');
+  const error = document.getElementById('login-error');
+  if (!input) return;
+
+  const passkey = input.value.trim();
+  if (!passkey) {
+    if (error) error.textContent = 'Please enter a passkey';
+    return;
+  }
+
+  const valid = await Auth.login(passkey);
+  if (valid) {
+    currentView = 'dashboard';
+    renderView();
+  } else {
+    if (error) error.textContent = 'Invalid passkey';
+    input.value = '';
+    input.focus();
+    input.classList.add('shake');
+    setTimeout(() => input.classList.remove('shake'), 500);
   }
 }
 
 function handleInput(e) {
   const target = e.target;
 
-  // Global search
   if (target.dataset.action === 'global-search') {
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => {
@@ -270,7 +318,6 @@ function handleInput(e) {
     }, 200);
   }
 
-  // Inline project name edit
   if (target.dataset.action === 'edit-project-name') {
     clearTimeout(target._saveTimeout);
     target._saveTimeout = setTimeout(() => {
@@ -302,6 +349,11 @@ function handleSubmit(e) {
   e.preventDefault();
   const form = e.target;
   const action = form.dataset.action;
+
+  if (action === 'login-form') {
+    handleLogin();
+    return;
+  }
 
   if (action === 'create-project') {
     const name = form.projectName.value.trim();
@@ -342,7 +394,13 @@ function handleSubmit(e) {
 }
 
 function handleKeydown(e) {
-  // Quick add on Enter
+  // Login enter key
+  if (e.key === 'Enter' && e.target.id === 'passkey-input') {
+    e.preventDefault();
+    handleLogin();
+    return;
+  }
+
   if (e.key === 'Enter' && e.target.dataset.action === 'quick-add') {
     const name = e.target.value.trim();
     if (!name) return;
@@ -351,14 +409,12 @@ function handleKeydown(e) {
     e.target.value = '';
     renderView();
 
-    // Re-focus the quick add input
     requestAnimationFrame(() => {
       const input = document.querySelector('[data-action="quick-add"]');
       if (input) input.focus();
     });
   }
 
-  // Escape closes modal
   if (e.key === 'Escape') {
     closeModal();
     closeAllDropdowns();
@@ -367,11 +423,27 @@ function handleKeydown(e) {
   }
 }
 
+// ── Toast Notifications ──
+
+function showToast(message) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add('toast-visible'), 10);
+  setTimeout(() => {
+    toast.classList.remove('toast-visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
 // ── Modal Management ──
 
 function showModal(html) {
   modalContainer.innerHTML = html;
-  // Focus first input
   requestAnimationFrame(() => {
     const input = modalContainer.querySelector('input, textarea, select');
     if (input) input.focus();
