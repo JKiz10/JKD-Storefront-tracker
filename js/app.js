@@ -8,6 +8,7 @@ import {
   renderProjectDetail,
   renderProductModal,
   renderNewProjectModal,
+  renderAmazonLinkModal,
   renderConfirmModal,
   renderSearchResults,
   STATUS_ORDER,
@@ -170,6 +171,11 @@ function handleClick(e) {
     case 'back-to-dashboard':
       navigateTo('dashboard');
       break;
+
+    case 'add-from-amazon': {
+      showModal(renderAmazonLinkModal(target.dataset.projectId));
+      break;
+    }
 
     case 'import-seed': {
       const pid = target.dataset.projectId;
@@ -390,6 +396,27 @@ function handleSubmit(e) {
     }
     closeModal();
     navigateTo('project', project.id);
+  }
+
+  if (action === 'save-amazon-link') {
+    const pid = form.dataset.projectId;
+    const data = {
+      name: form.name.value.trim(),
+      description: form.description.value.trim(),
+      amazonUrl: form.amazonUrl.value.trim(),
+      imageUrl: form.imageUrl?.value.trim() || '',
+      price: form.price.value.trim(),
+      category: form.category.value,
+      status: 'review',
+    };
+
+    if (!data.name || !data.amazonUrl) return;
+
+    Store.addProduct(pid, data);
+    closeModal();
+    renderView();
+    showToast('Product added from Amazon link');
+    return;
   }
 
   if (action === 'save-product') {

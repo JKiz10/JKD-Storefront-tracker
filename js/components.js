@@ -191,6 +191,10 @@ function renderProjectDetail(project, products, filters) {
         <input type="text" class="quick-add-input" placeholder="Quick add product name..." data-action="quick-add" data-project-id="${project.id}" />
         <kbd class="kbd-hint">↵</kbd>
       </div>
+      <button class="btn btn-ghost btn-sm" data-action="add-from-amazon" data-project-id="${project.id}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Add from Link
+      </button>
       <div class="filter-controls">
         <select class="filter-select" data-action="filter-status">
           <option value="all" ${filters.status === 'all' ? 'selected' : ''}>All Status</option>
@@ -376,6 +380,64 @@ function renderNewProjectModal() {
   `;
 }
 
+function renderAmazonLinkModal(projectId) {
+  return `
+    <div class="modal-overlay" data-action="close-modal">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Add from Amazon Link</h2>
+          <button class="btn-icon" data-action="close-modal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form class="modal-form" data-action="save-amazon-link" data-project-id="${projectId}">
+          <div class="form-group">
+            <label>Amazon Product URL *</label>
+            <input type="url" name="amazonUrl" required autofocus placeholder="https://www.amazon.com/..." />
+            <p class="form-hint">Paste the full Amazon product page URL</p>
+          </div>
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" name="name" required placeholder="e.g., Faux Olive Tree 6ft" />
+          </div>
+          <div class="form-group">
+            <label>Image URL</label>
+            <input type="url" name="imageUrl" placeholder="https://m.media-amazon.com/images/..." />
+            <p class="form-hint">Right-click the product image on Amazon and copy image address</p>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Price</label>
+              <input type="text" name="price" placeholder="$29.99" />
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select name="category">
+                <option value="Plants & Trees">Plants & Trees</option>
+                <option value="Loloi Rugs">Loloi Rugs</option>
+                <option value="Throw Pillows">Throw Pillows</option>
+                <option value="Vases">Vases</option>
+                <option value="Throw Blankets">Throw Blankets</option>
+                <option value="Baskets & Trays">Baskets & Trays</option>
+                <option value="Accent Pieces">Accent Pieces</option>
+                <option value="Uncategorized">Uncategorized</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea name="description" rows="2" placeholder="Brand, size, color, why you like it..."></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Product</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 function renderConfirmModal(message, action, data = {}) {
   const dataAttrs = Object.entries(data)
     .map(([k, v]) => `data-${k}="${escapeHtml(v)}"`)
@@ -435,6 +497,7 @@ export {
   renderProductRow,
   renderProductModal,
   renderNewProjectModal,
+  renderAmazonLinkModal,
   renderConfirmModal,
   renderSearchResults,
   renderProjectMenu,
