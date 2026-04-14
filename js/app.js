@@ -12,6 +12,7 @@ import {
   renderAmazonLinkModal,
   renderConfirmModal,
   renderSearchResults,
+  renderSettingsModal,
   STATUS_ORDER,
 } from './components.js';
 
@@ -132,6 +133,7 @@ function bindGlobalEvents() {
   document.addEventListener('submit', handleSubmit);
   document.addEventListener('keydown', handleKeydown);
 
+  // Close floating menus and search on outside click
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.status-dropdown-wrap') && !e.target.closest('.status-dropdown-floating')) {
       closeAllDropdowns();
@@ -139,6 +141,9 @@ function bindGlobalEvents() {
     }
     if (!e.target.closest('.context-menu') && !e.target.closest('[data-action="project-menu"]')) {
       closeContextMenus();
+    }
+    if (!e.target.closest('.search-wrap') && !e.target.closest('.search-results')) {
+      closeSearchResults();
     }
   });
 }
@@ -166,6 +171,7 @@ function handleClick(e) {
       break;
 
     case 'open-project':
+      closeSearchResults();
       navigateTo('project', target.dataset.projectId);
       break;
 
@@ -284,6 +290,46 @@ function handleClick(e) {
 
     case 'fetch-amazon': {
       handleFetchAmazon();
+      break;
+    }
+
+    case 'open-settings': {
+      const info = Store.getStorageInfo();
+      showModal(renderSettingsModal(info));
+      break;
+    }
+
+    case 'export-data': {
+      const json = Store.exportData();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jkd-storefront-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Data exported');
+      break;
+    }
+
+    case 'confirm-reset-data': {
+      showModal(
+        renderConfirmModal(
+          'Reset ALL data? This will delete every project and product. This cannot be undone.',
+          'reset-data',
+          {}
+        )
+      );
+      break;
+    }
+
+    case 'reset-data': {
+      Store.resetData();
+      closeModal();
+      navigateTo('dashboard');
+      showToast('All data reset');
       break;
     }
 
@@ -434,6 +480,33 @@ function handleChange(e) {
   const target = e.target;
   const action = target.dataset.action;
 
+  // File import
+  if (action === 'import-data' && target.files?.length) {
+    const file = target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = Store.importData(reader.result);
+      const statusEl = document.getElementById('settings-status');
+      if (result.success) {
+        closeModal();
+        navigateTo('dashboard');
+        showToast(`Imported ${result.projectCount} project${result.projectCount !== 1 ? 's' : ''}`);
+      } else if (statusEl) {
+        statusEl.textContent = result.error;
+        statusEl.className = 'settings-status settings-status-error';
+      }
+    };
+    reader.onerror = () => {
+      const statusEl = document.getElementById('settings-status');
+      if (statusEl) {
+        statusEl.textContent = 'Failed to read file';
+        statusEl.className = 'settings-status settings-status-error';
+      }
+    };
+    reader.readAsText(file);
+    return;
+  }
+
   // Category "New" toggle
   if (target.id === 'amazon-category') {
     const newGroup = document.getElementById('new-category-group');
@@ -542,11 +615,21 @@ function handleSubmit(e) {
   }
 }
 
+let lastFocusedElement = null;
+
 function handleKeydown(e) {
   // Login enter key
   if (e.key === 'Enter' && e.target.id === 'passkey-input') {
     e.preventDefault();
     handleLogin();
+    return;
+  }
+
+  // Enter key on project cards (role="button")
+  if (e.key === 'Enter' && e.target.matches('.project-card')) {
+    e.preventDefault();
+    const projectId = e.target.dataset.projectId;
+    if (projectId) navigateTo('project', projectId);
     return;
   }
 
@@ -569,6 +652,7 @@ function handleKeydown(e) {
     closeAllDropdowns();
     closeContextMenus();
     closeStatusMenus();
+    closeSearchResults();
   }
 }
 
@@ -592,28 +676,28 @@ function showToast(message) {
 // ── Modal Management ──
 
 function showModal(html) {
+  lastFocusedElement = document.activeElement;
   modalContainer.innerHTML = html;
+
+  // Stop propagation on modal body so overlay click-to-close works
+  const body = modalContainer.querySelector('[data-modal-body]');
+  if (body) {
+    body.addEventListener('click', (e) => e.stopPropagation());
+  }
+
   requestAnimationFrame(() => {
     const input = modalContainer.querySelector('input, textarea, select');
     if (input) input.focus();
   });
-
-  // Bind modal-internal action buttons (since modal stopPropagation blocks document delegation)
-  modalContainer.querySelectorAll('[data-action]').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      handleClick(e);
-    });
-  });
-
-  // Category select toggle for new category
-  const catSelect = modalContainer.querySelector('#amazon-category');
-  if (catSelect) {
-    catSelect.addEventListener('change', (e) => handleChange(e));
-  }
 }
 
 function closeModal() {
   modalContainer.innerHTML = '';
+  // Restore focus to the element that opened the modal
+  if (lastFocusedElement && lastFocusedElement.isConnected) {
+    requestAnimationFrame(() => lastFocusedElement.focus());
+    lastFocusedElement = null;
+  }
 }
 
 // ── Dropdown / Menu Helpers ──
@@ -630,6 +714,14 @@ function closeContextMenus() {
 
 function closeStatusMenus() {
   document.querySelectorAll('.status-dropdown-floating').forEach((el) => el.remove());
+}
+
+function closeSearchResults() {
+  const resultsEl = document.getElementById('search-results');
+  if (resultsEl) {
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+  }
 }
 
 // ── Go ──

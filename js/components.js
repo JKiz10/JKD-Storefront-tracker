@@ -8,6 +8,7 @@ const STATUS_META = {
 };
 
 const STATUS_ORDER = ['review', 'ordered', 'shot', 'returned'];
+const VALID_STATUSES = STATUS_ORDER;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -19,25 +20,26 @@ function escapeHtml(str) {
 
 function renderLoginScreen() {
   return `
-    <div class="login-screen">
+    <div class="login-screen" role="main">
       <div class="login-card">
         <div class="login-logo">
           <img src="assets/logo-primary.svg" alt="Jennifer Kizzee Design" class="login-logo-img" />
         </div>
-        <div class="login-divider"></div>
+        <div class="login-divider" aria-hidden="true"></div>
         <h2 class="login-title">Storefront Tracker</h2>
-        <p class="login-subtitle">Enter your passkey to continue</p>
-        <form class="login-form" data-action="login-form" onsubmit="return false;">
+        <p class="login-subtitle" id="login-desc">Enter your passkey to continue</p>
+        <form class="login-form" data-action="login-form" onsubmit="return false;" aria-describedby="login-desc">
           <div class="login-input-wrap">
-            <input type="password" id="passkey-input" class="login-input" placeholder="Passkey" autocomplete="off" autofocus />
+            <label for="passkey-input" class="sr-only">Passkey</label>
+            <input type="password" id="passkey-input" class="login-input" placeholder="Passkey" autocomplete="off" autofocus aria-required="true" />
           </div>
-          <div id="login-error" class="login-error"></div>
+          <div id="login-error" class="login-error" role="alert" aria-live="assertive"></div>
           <button type="submit" class="btn btn-primary login-btn" data-action="login-submit">
             Enter
           </button>
         </form>
-        <div class="login-footer">
-          <img src="assets/logo-monogram.svg" alt="JKD" class="login-monogram" />
+        <div class="login-footer" aria-hidden="true">
+          <img src="assets/logo-monogram.svg" alt="" class="login-monogram" />
         </div>
       </div>
     </div>
@@ -48,42 +50,46 @@ function renderLoginScreen() {
 
 function renderDashboard(projects, stats) {
   return `
-    <header class="app-header">
+    <header class="app-header" role="banner">
       <div class="header-left">
-        <img src="assets/logo-monogram.svg" alt="JKD" class="header-monogram" />
+        <img src="assets/logo-monogram.svg" alt="" class="header-monogram" aria-hidden="true" />
         <h1 class="app-title">Storefront Tracker</h1>
-        <span class="header-tag">Amazon Storefront</span>
+        <span class="header-tag" aria-label="Amazon Storefront mode">Amazon Storefront</span>
       </div>
       <div class="header-right">
-        <div class="global-stats">
-          <span class="stat-pill stat-review">${stats.review} review</span>
-          <span class="stat-pill stat-ordered">${stats.ordered} ordered</span>
-          <span class="stat-pill stat-shot">${stats.shot} shot</span>
-          <span class="stat-pill stat-returned">${stats.returned} returned</span>
+        <div class="global-stats" role="status" aria-label="Global product status">
+          <span class="stat-pill stat-review" aria-label="${stats.review} under review">${stats.review} review</span>
+          <span class="stat-pill stat-ordered" aria-label="${stats.ordered} ordered">${stats.ordered} ordered</span>
+          <span class="stat-pill stat-shot" aria-label="${stats.shot} shot">${stats.shot} shot</span>
+          <span class="stat-pill stat-returned" aria-label="${stats.returned} returned">${stats.returned} returned</span>
         </div>
-        <button class="btn-icon btn-logout" data-action="logout" title="Sign out">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <button class="btn-icon" data-action="open-settings" title="Data management" aria-label="Data management">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </button>
+        <button class="btn-icon btn-logout" data-action="logout" title="Sign out" aria-label="Sign out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         </button>
       </div>
     </header>
 
-    <div class="dashboard-toolbar">
-      <div class="search-wrap">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" class="search-input" placeholder="Search all products..." data-action="global-search" />
+    <nav class="dashboard-toolbar" aria-label="Dashboard actions">
+      <div class="search-wrap" role="search">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <label for="global-search-input" class="sr-only">Search all products</label>
+        <input type="text" id="global-search-input" class="search-input" placeholder="Search all products..." data-action="global-search" autocomplete="off" />
       </div>
       <button class="btn btn-primary" data-action="new-project">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         New Project
       </button>
-    </div>
+    </nav>
 
-    <div class="search-results" id="search-results" style="display:none;"></div>
+    <div class="search-results" id="search-results" role="listbox" aria-label="Search results" style="display:none;"></div>
 
-    <section class="projects-grid" id="projects-grid">
+    <section class="projects-grid" id="projects-grid" aria-label="Projects">
       ${projects.length === 0
-        ? `<div class="empty-state">
-            <div class="empty-icon">📋</div>
+        ? `<div class="empty-state" role="status">
+            <div class="empty-icon" aria-hidden="true">📋</div>
             <h3>No projects yet</h3>
             <p>Create your first project to start tracking staging items.</p>
           </div>`
@@ -108,18 +114,18 @@ function renderProjectCard(project) {
   const returnedPct = (stats.returned / progressTotal) * 100;
 
   return `
-    <article class="project-card" data-action="open-project" data-project-id="${project.id}">
+    <article class="project-card" data-action="open-project" data-project-id="${project.id}" role="button" tabindex="0" aria-label="Open project: ${escapeHtml(project.name)}, ${stats.total} items">
       <div class="card-header">
         <h3 class="card-title">${escapeHtml(project.name)}</h3>
-        <button class="card-menu-btn" data-action="project-menu" data-project-id="${project.id}" title="More options">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
+        <button class="card-menu-btn" data-action="project-menu" data-project-id="${project.id}" title="More options" aria-label="More options for ${escapeHtml(project.name)}" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
         </button>
       </div>
       <div class="card-stats">
         <span class="card-stat">${stats.total} item${stats.total !== 1 ? 's' : ''}</span>
         <span class="card-date">${project.createdAt}</span>
       </div>
-      <div class="progress-bar">
+      <div class="progress-bar" role="progressbar" aria-label="Project status breakdown" aria-valuenow="${stats.shot + stats.returned}" aria-valuemin="0" aria-valuemax="${stats.total}">
         <div class="progress-segment progress-review" style="width:${reviewPct}%"></div>
         <div class="progress-segment progress-ordered" style="width:${orderedPct}%"></div>
         <div class="progress-segment progress-shot" style="width:${shotPct}%"></div>
@@ -149,9 +155,9 @@ function renderProjectDetail(project, products, filters) {
   const categories = [...new Set(project.products.map((p) => p.category))].sort();
 
   return `
-    <header class="detail-header">
-      <button class="btn btn-ghost" data-action="back-to-dashboard">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    <header class="detail-header" role="banner">
+      <button class="btn btn-ghost" data-action="back-to-dashboard" aria-label="Back to dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Back
       </button>
       <div class="detail-title-wrap">
@@ -159,11 +165,11 @@ function renderProjectDetail(project, products, filters) {
       </div>
       <div class="detail-actions">
         <button class="btn btn-ghost btn-sm" data-action="import-seed" data-project-id="${project.id}" title="Import storefront items">Import Items</button>
-        <button class="btn btn-ghost btn-sm btn-danger" data-action="delete-project" data-project-id="${project.id}">Delete</button>
+        <button class="btn btn-ghost btn-sm btn-danger" data-action="confirm-delete-project" data-project-id="${project.id}">Delete</button>
       </div>
     </header>
 
-    <div class="stats-bar">
+    <div class="stats-bar" role="group" aria-label="Product statistics">
       <div class="stat-card">
         <span class="stat-number">${stats.total}</span>
         <span class="stat-label">Total</span>
@@ -186,13 +192,14 @@ function renderProjectDetail(project, products, filters) {
       </div>
     </div>
 
-    <div class="detail-toolbar">
+    <nav class="detail-toolbar" aria-label="Product actions">
       <div class="quick-add-wrap">
-        <input type="text" class="quick-add-input" placeholder="Quick add product name..." data-action="quick-add" data-project-id="${project.id}" />
-        <kbd class="kbd-hint">↵</kbd>
+        <label for="quick-add-input" class="sr-only">Quick add product</label>
+        <input type="text" id="quick-add-input" class="quick-add-input" placeholder="Quick add product name..." data-action="quick-add" data-project-id="${project.id}" autocomplete="off" />
+        <kbd class="kbd-hint" aria-hidden="true">↵</kbd>
       </div>
       <button class="btn btn-ghost btn-sm" data-action="add-from-amazon" data-project-id="${project.id}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Add from Link
       </button>
       <div class="filter-controls">
@@ -215,12 +222,12 @@ function renderProjectDetail(project, products, filters) {
           <option value="status" ${filters.sort === 'status' ? 'selected' : ''}>By Status</option>
         </select>
       </div>
-    </div>
+    </nav>
 
-    <div class="product-list" id="product-list">
+    <div class="product-list" id="product-list" role="list" aria-label="Products (${products.length} shown)">
       ${products.length === 0
-        ? `<div class="empty-state">
-            <div class="empty-icon">🏷️</div>
+        ? `<div class="empty-state" role="status">
+            <div class="empty-icon" aria-hidden="true">🏷️</div>
             <h3>No products yet</h3>
             <p>Use the quick-add input above or import storefront items.</p>
           </div>`
@@ -236,20 +243,25 @@ function renderProductRow(product, projectId) {
 
   const categoryIcons = {
     'Plants & Trees': '🌿',
+    'Rugs': '🟫',
     'Loloi Rugs': '🟫',
     'Throw Pillows': '🛋️',
     'Vases': '🏺',
     'Throw Blankets': '🧶',
     'Baskets & Trays': '🧺',
     'Accent Pieces': '✨',
+    'Lighting': '💡',
+    'Mirrors': '🪞',
+    'Wall Art': '🖼️',
+    'Furniture': '🪑',
     'Uncategorized': '📦',
   };
 
   const fallbackIcon = categoryIcons[product.category] || '📦';
 
   return `
-    <div class="product-row" data-product-id="${product.id}">
-      <div class="product-thumb">
+    <div class="product-row" data-product-id="${product.id}" role="listitem">
+      <div class="product-thumb" aria-hidden="true">
         ${hasImage
           ? `<img src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}" class="thumb-img" loading="lazy" />`
           : `<div class="thumb-placeholder">${fallbackIcon}</div>`}
@@ -266,9 +278,9 @@ function renderProductRow(product, projectId) {
       <div class="product-meta">
         <span class="product-price">${escapeHtml(product.price)}</span>
         <div class="status-dropdown-wrap">
-          <button class="status-badge status-${product.status}" data-action="toggle-status-dropdown" data-product-id="${product.id}">
+          <button class="status-badge status-${product.status}" data-action="toggle-status-dropdown" data-product-id="${product.id}" aria-haspopup="listbox" aria-label="Status: ${meta.label}. Click to change">
             ${meta.label}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="status-dropdown" id="status-dropdown-${product.id}" style="display:none;">
             ${STATUS_ORDER.map((s) => `
@@ -296,10 +308,10 @@ function renderProductRow(product, projectId) {
 function renderProductModal(product = null, projectId = '', categories = []) {
   const isEdit = product !== null;
   return `
-    <div class="modal-overlay" data-action="close-modal">
-      <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-overlay" data-action="close-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-product">
+      <div class="modal" data-modal-body>
         <div class="modal-header">
-          <h2>${isEdit ? 'Edit Product' : 'Add Product'}</h2>
+          <h2 id="modal-title-product">${isEdit ? 'Edit Product' : 'Add Product'}</h2>
           <button class="btn-icon" data-action="close-modal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -354,10 +366,10 @@ function renderProductModal(product = null, projectId = '', categories = []) {
 
 function renderNewProjectModal() {
   return `
-    <div class="modal-overlay" data-action="close-modal">
-      <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="modal-overlay" data-action="close-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-newproject">
+      <div class="modal modal-sm" data-modal-body>
         <div class="modal-header">
-          <h2>New Project</h2>
+          <h2 id="modal-title-newproject">New Project</h2>
           <button class="btn-icon" data-action="close-modal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -384,10 +396,10 @@ function renderAmazonLinkModal(projectId, categories = []) {
   const allCats = [...new Set([...categories, 'Plants & Trees', 'Rugs', 'Throw Pillows', 'Vases', 'Throw Blankets', 'Baskets & Trays', 'Accent Pieces', 'Lighting', 'Mirrors', 'Wall Art', 'Furniture'])].sort();
 
   return `
-    <div class="modal-overlay" data-action="close-modal">
-      <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-overlay" data-action="close-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-amazon">
+      <div class="modal" data-modal-body>
         <div class="modal-header">
-          <h2>Add from Amazon</h2>
+          <h2 id="modal-title-amazon">Add from Amazon</h2>
           <button class="btn-icon" data-action="close-modal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -457,10 +469,10 @@ function renderConfirmModal(message, action, data = {}) {
     .join(' ');
 
   return `
-    <div class="modal-overlay" data-action="close-modal">
-      <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="modal-overlay" data-action="close-modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title-confirm">
+      <div class="modal modal-sm" data-modal-body>
         <div class="modal-header">
-          <h2>Confirm</h2>
+          <h2 id="modal-title-confirm">Confirm</h2>
         </div>
         <div class="modal-body">
           <p>${message}</p>
@@ -476,22 +488,78 @@ function renderConfirmModal(message, action, data = {}) {
 
 function renderSearchResults(results) {
   if (results.length === 0) {
-    return '<div class="search-empty">No products found</div>';
+    return '<div class="search-empty" role="status">No products found</div>';
   }
   return results
     .map(
-      (r) => `
-    <div class="search-result-item" data-action="open-project" data-project-id="${r.projectId}">
+      (r) => {
+        const safeStatus = VALID_STATUSES.includes(r.status) ? r.status : 'review';
+        const meta = STATUS_META[safeStatus] ?? STATUS_META['review'];
+        return `
+    <div class="search-result-item" data-action="open-project" data-project-id="${escapeHtml(r.projectId)}" role="option" tabindex="0">
       <span class="search-result-name">${escapeHtml(r.name)}</span>
       <span class="search-result-project">${escapeHtml(r.projectName)}</span>
-      <span class="status-badge status-${r.status} status-sm">${(STATUS_META[r.status] ?? STATUS_META['review']).label}</span>
+      <span class="status-badge status-${safeStatus} status-sm">${meta.label}</span>
     </div>
-  `
+  `;
+      }
     )
     .join('');
 }
 
 // ── Project Menu Dropdown ──
+
+function renderSettingsModal(storageInfo) {
+  return `
+    <div class="modal-overlay" data-action="close-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-settings">
+      <div class="modal" data-modal-body>
+        <div class="modal-header">
+          <h2 id="modal-title-settings">Data Management</h2>
+          <button class="btn-icon" data-action="close-modal" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-form">
+          <div class="settings-info">
+            <div class="settings-stat-row">
+              <span class="settings-stat-label">Projects</span>
+              <span class="settings-stat-value">${storageInfo.projectCount}</span>
+            </div>
+            <div class="settings-stat-row">
+              <span class="settings-stat-label">Total Products</span>
+              <span class="settings-stat-value">${storageInfo.productCount}</span>
+            </div>
+            <div class="settings-stat-row">
+              <span class="settings-stat-label">Storage Used</span>
+              <span class="settings-stat-value">${storageInfo.sizeKb} KB</span>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-ghost" data-action="export-data" style="width:100%">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export Data (JSON)
+            </button>
+            <label class="btn btn-ghost import-label" style="width:100%;cursor:pointer;justify-content:center" tabindex="0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Import Data (JSON)
+              <input type="file" accept=".json,application/json" data-action="import-data" class="sr-only" />
+            </label>
+          </div>
+
+          <div id="settings-status" class="settings-status" role="status" aria-live="polite"></div>
+
+          <div class="settings-danger-zone">
+            <p class="danger-zone-label">Danger Zone</p>
+            <button class="btn btn-danger" data-action="confirm-reset-data" style="width:100%">
+              Reset All Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 function renderProjectMenu(projectId) {
   return `
@@ -513,6 +581,7 @@ export {
   renderAmazonLinkModal,
   renderConfirmModal,
   renderSearchResults,
+  renderSettingsModal,
   renderProjectMenu,
   STATUS_META,
   STATUS_ORDER,
