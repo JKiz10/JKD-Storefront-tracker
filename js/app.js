@@ -679,10 +679,14 @@ function showModal(html) {
   lastFocusedElement = document.activeElement;
   modalContainer.innerHTML = html;
 
-  // Stop propagation on modal body so overlay click-to-close works
   const body = modalContainer.querySelector('[data-modal-body]');
   if (body) {
+    // Stop propagation so overlay click-to-close works
+    // but add delegation on the same element for action buttons inside the modal.
+    // stopPropagation only blocks ancestors — both listeners on the same node still fire.
     body.addEventListener('click', (e) => e.stopPropagation());
+    body.addEventListener('click', (e) => handleClick(e));
+    body.addEventListener('change', (e) => handleChange(e));
   }
 
   requestAnimationFrame(() => {
