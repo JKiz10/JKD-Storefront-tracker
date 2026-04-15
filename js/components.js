@@ -63,6 +63,7 @@ function renderDashboard(projects, stats) {
           <span class="stat-pill stat-shot" aria-label="${stats.shot} shot">${stats.shot} shot</span>
           <span class="stat-pill stat-returned" aria-label="${stats.returned} returned">${stats.returned} returned</span>
         </div>
+        <span id="sync-indicator" class="sync-dot sync-local" role="status" aria-label="Local only — Supabase not connected"></span>
         <button class="btn-icon" data-action="open-settings" title="Data management" aria-label="Data management">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
         </button>
@@ -532,6 +533,10 @@ function renderSettingsModal(storageInfo) {
             <div class="settings-stat-row">
               <span class="settings-stat-label">Storage Used</span>
               <span class="settings-stat-value">${storageInfo.sizeKb} KB</span>
+            </div>
+            <div class="settings-stat-row">
+              <span class="settings-stat-label">Cloud Sync</span>
+              <span class="settings-stat-value ${storageInfo.connected ? 'sync-status-on' : 'sync-status-off'}">${storageInfo.connected ? '● Connected' : '○ Local Only'}</span>
             </div>
           </div>
 

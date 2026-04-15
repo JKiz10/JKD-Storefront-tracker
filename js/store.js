@@ -1,4 +1,9 @@
-// store.js — localStorage CRUD + data model
+// store.js — localStorage CRUD + Supabase real-time sync
+// Architecture: optimistic local writes (instant UI) + background Supabase push
+// If Supabase is unreachable or unconfigured, falls back to localStorage only.
+
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
 const STORAGE_KEY = 'jkd_storefront_tracker';
 const SCHEMA_VERSION = 2;
 const VALID_STATUSES = ['review', 'ordered', 'shot', 'returned'];
@@ -9,9 +14,19 @@ const MAX_PRODUCTS_PER_PROJECT = 500;
 
 const Store = {
   _data: null,
+  _sb: null,
+  _channel: null,
+  _connected: false,
+  _onSync: null,
+  _onConnectionChange: null,
   _saveQueued: false,
 
+  // ── ID & Date helpers ──
+
   _generateId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   },
 
@@ -38,6 +53,58 @@ const Store = {
       status: this._validateStatus(product.status),
     };
   },
+
+  // ── Column mapping: camelCase (JS) ↔ snake_case (Postgres) ──
+
+  _productToDb(product, projectId) {
+    return {
+      id: product.id,
+      project_id: projectId,
+      name: product.name || '',
+      description: product.description || '',
+      amazon_url: product.amazonUrl || '',
+      image_url: product.imageUrl || '',
+      price: product.price || '',
+      category: product.category || 'Uncategorized',
+      status: product.status || 'review',
+      date_added: product.dateAdded || this._today(),
+      date_status_changed: product.dateStatusChanged || this._today(),
+    };
+  },
+
+  _productFromDb(row) {
+    return {
+      id: row.id,
+      name: row.name || '',
+      description: row.description || '',
+      amazonUrl: row.amazon_url || '',
+      imageUrl: row.image_url || '',
+      price: row.price || '',
+      category: row.category || 'Uncategorized',
+      status: this._validateStatus(row.status),
+      dateAdded: row.date_added || this._today(),
+      dateStatusChanged: row.date_status_changed || this._today(),
+    };
+  },
+
+  _projectToDb(project) {
+    return {
+      id: project.id,
+      name: project.name,
+      created_at: project.createdAt || this._today(),
+    };
+  },
+
+  _projectFromDb(row) {
+    return {
+      id: row.id,
+      name: row.name || 'Untitled Project',
+      createdAt: row.created_at || this._today(),
+      products: (row.products || []).map((p) => this._productFromDb(p)),
+    };
+  },
+
+  // ── localStorage layer ──
 
   _migrateData(data) {
     if (!data || !Array.isArray(data.projects)) {
@@ -69,42 +136,196 @@ const Store = {
     return migrated;
   },
 
-  load() {
+  _loadLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       this._data = this._migrateData(parsed);
     } catch (err) {
-      console.error('[Store] Failed to load data from localStorage:', err);
+      console.error('[Store] Failed to load localStorage:', err);
       this._data = { projects: [], schemaVersion: SCHEMA_VERSION };
     }
     return this._data;
   },
 
-  _save() {
+  _saveLocal() {
     try {
-      const json = JSON.stringify(this._data);
-      localStorage.setItem(STORAGE_KEY, json);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this._data));
       return true;
     } catch (err) {
-      console.error('[Store] Failed to save:', err);
+      console.error('[Store] Failed to save localStorage:', err);
       window.dispatchEvent(new CustomEvent('store-save-error', { detail: err.message }));
       return false;
     }
   },
 
-  // Debounced save for rapid updates (e.g., inline title editing)
-  _debouncedSave() {
+  _debouncedSaveLocal() {
     if (this._saveQueued) return;
     this._saveQueued = true;
     requestAnimationFrame(() => {
-      this._save();
+      this._saveLocal();
       this._saveQueued = false;
     });
   },
 
+  // ══════════════════════════════════════════════
+  // SUPABASE SYNC LAYER
+  // ══════════════════════════════════════════════
+
+  async init() {
+    // 1. Load localStorage immediately (instant first paint)
+    this._loadLocal();
+
+    // 2. Try to connect to Supabase
+    if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_')) {
+      console.info('[Store] Supabase not configured — localStorage only mode');
+      return;
+    }
+
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      this._sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // 3. Fetch remote data
+      const remote = await this._fetchAll();
+
+      if (remote.projects.length === 0 && this._data.projects.length > 0) {
+        // Migration: local data exists but Supabase is empty — push everything up
+        console.info('[Store] Migrating localStorage data to Supabase...');
+        await this._pushAll();
+      } else if (remote.projects.length > 0) {
+        // Use Supabase as source of truth
+        this._data = remote;
+        this._saveLocal();
+      }
+      // If both empty, let the caller seed data
+
+      this._connected = true;
+      this._notifyConnection(true);
+
+      // 4. Start real-time subscription
+      this._subscribe();
+    } catch (err) {
+      console.warn('[Store] Supabase unavailable, using localStorage only:', err.message);
+      this._connected = false;
+    }
+  },
+
+  // Fetch all projects with nested products from Supabase
+  async _fetchAll() {
+    const { data, error } = await this._sb
+      .from('projects')
+      .select('*, products(*)');
+
+    if (error) throw error;
+
+    return {
+      projects: (data || []).map((p) => this._projectFromDb(p)),
+      schemaVersion: SCHEMA_VERSION,
+    };
+  },
+
+  // Push all localStorage data up to Supabase (one-time migration)
+  async _pushAll() {
+    for (const project of this._data.projects) {
+      const { error: pErr } = await this._sb
+        .from('projects')
+        .upsert(this._projectToDb(project));
+      if (pErr) console.warn('[Store] Push project failed:', pErr.message);
+
+      if (project.products.length > 0) {
+        const rows = project.products.map((p) => this._productToDb(p, project.id));
+        const { error: prodErr } = await this._sb
+          .from('products')
+          .upsert(rows);
+        if (prodErr) console.warn('[Store] Push products failed:', prodErr.message);
+      }
+    }
+  },
+
+  // Real-time Postgres Changes subscription
+  _subscribe() {
+    if (!this._sb) return;
+
+    this._channel = this._sb
+      .channel('tracker-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => this._onRemoteChange())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => this._onRemoteChange())
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.info('[Store] Real-time subscription active');
+        }
+      });
+  },
+
+  // When another client changes data, re-fetch everything and re-render
+  async _onRemoteChange() {
+    if (!this._sb) return;
+    try {
+      const remote = await this._fetchAll();
+      this._data = remote;
+      this._saveLocal();
+      if (this._onSync) this._onSync();
+    } catch (err) {
+      console.warn('[Store] Real-time sync failed:', err.message);
+    }
+  },
+
+  // ── Fire-and-forget remote push helpers ──
+
+  _pushProjectRemote(project) {
+    if (!this._sb) return;
+    this._sb.from('projects').upsert(this._projectToDb(project))
+      .then(({ error }) => { if (error) console.warn('[Store] Sync project:', error.message); });
+  },
+
+  _pushProductRemote(projectId, product) {
+    if (!this._sb) return;
+    this._sb.from('products').upsert(this._productToDb(product, projectId))
+      .then(({ error }) => { if (error) console.warn('[Store] Sync product:', error.message); });
+  },
+
+  _pushProductsRemote(projectId, products) {
+    if (!this._sb || products.length === 0) return;
+    const rows = products.map((p) => this._productToDb(p, projectId));
+    this._sb.from('products').upsert(rows)
+      .then(({ error }) => { if (error) console.warn('[Store] Sync products:', error.message); });
+  },
+
+  _removeProjectRemote(id) {
+    if (!this._sb) return;
+    this._sb.from('projects').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.warn('[Store] Remove project:', error.message); });
+  },
+
+  _removeProductRemote(id) {
+    if (!this._sb) return;
+    this._sb.from('products').delete().eq('id', id)
+      .then(({ error }) => { if (error) console.warn('[Store] Remove product:', error.message); });
+  },
+
+  _removeProductsRemote(ids) {
+    if (!this._sb || ids.length === 0) return;
+    this._sb.from('products').delete().in('id', ids)
+      .then(({ error }) => { if (error) console.warn('[Store] Remove products:', error.message); });
+  },
+
+  // ── Callbacks ──
+
+  onSync(cb) { this._onSync = cb; },
+  onConnectionChange(cb) { this._onConnectionChange = cb; },
+  _notifyConnection(state) {
+    this._connected = state;
+    if (this._onConnectionChange) this._onConnectionChange(state);
+  },
+  isConnected() { return this._connected; },
+
+  // ══════════════════════════════════════════════
+  // PUBLIC API (unchanged signatures — optimistic local + background push)
+  // ══════════════════════════════════════════════
+
   isFirstRun() {
-    return localStorage.getItem(STORAGE_KEY) === null;
+    return this._data.projects.length === 0;
   },
 
   // ── Projects ──
@@ -134,7 +355,8 @@ const Store = {
       ...this._data,
       projects: [...this._data.projects, project],
     };
-    this._save();
+    this._saveLocal();
+    this._pushProjectRemote(project);
     return project;
   },
 
@@ -144,7 +366,7 @@ const Store = {
     const safeUpdates = {};
     if (updates.name !== undefined) {
       safeUpdates.name = this._truncate(updates.name?.trim(), MAX_NAME_LENGTH) || undefined;
-      if (!safeUpdates.name) return; // Don't allow empty names
+      if (!safeUpdates.name) return;
     }
 
     this._data = {
@@ -153,7 +375,11 @@ const Store = {
         p.id === id ? { ...p, ...safeUpdates } : p
       ),
     };
-    this._debouncedSave();
+    this._debouncedSaveLocal();
+
+    // Push updated project to Supabase
+    const updated = this.getProject(id);
+    if (updated) this._pushProjectRemote(updated);
   },
 
   deleteProject(id) {
@@ -162,7 +388,8 @@ const Store = {
       ...this._data,
       projects: this._data.projects.filter((p) => p.id !== id),
     };
-    this._save();
+    this._saveLocal();
+    this._removeProjectRemote(id); // cascade deletes products in Supabase
   },
 
   // ── Products ──
@@ -201,7 +428,8 @@ const Store = {
           : p
       ),
     };
-    this._save();
+    this._saveLocal();
+    this._pushProductRemote(projectId, newProduct);
     return newProduct;
   },
 
@@ -213,8 +441,6 @@ const Store = {
       updates.status !== undefined && existing.status !== updates.status;
 
     const finalUpdates = {};
-
-    // Only copy valid update fields
     if (updates.name !== undefined) finalUpdates.name = this._truncate(updates.name?.trim(), MAX_NAME_LENGTH);
     if (updates.description !== undefined) finalUpdates.description = this._truncate(updates.description?.trim(), MAX_DESC_LENGTH);
     if (updates.amazonUrl !== undefined) finalUpdates.amazonUrl = this._truncate(updates.amazonUrl?.trim(), MAX_URL_LENGTH);
@@ -237,7 +463,10 @@ const Store = {
           : p
       ),
     };
-    this._save();
+    this._saveLocal();
+
+    const updated = this.getProduct(projectId, productId);
+    if (updated) this._pushProductRemote(projectId, updated);
   },
 
   getProduct(projectId, productId) {
@@ -255,7 +484,8 @@ const Store = {
           : p
       ),
     };
-    this._save();
+    this._saveLocal();
+    this._removeProductRemote(productId);
   },
 
   bulkAddProducts(projectId, products) {
@@ -295,16 +525,16 @@ const Store = {
           : p
       ),
     };
-    this._save();
+    this._saveLocal();
+    this._pushProductsRemote(projectId, newProducts);
     return newProducts;
   },
-
-  // ── Bulk Status Update ──
 
   bulkUpdateStatus(projectId, productIds, newStatus) {
     const validStatus = this._validateStatus(newStatus);
     const idSet = new Set(productIds);
     const today = this._today();
+    const changed = [];
 
     this._data = {
       ...this._data,
@@ -312,16 +542,20 @@ const Store = {
         p.id === projectId
           ? {
               ...p,
-              products: p.products.map((prod) =>
-                idSet.has(prod.id) && prod.status !== validStatus
-                  ? { ...prod, status: validStatus, dateStatusChanged: today }
-                  : prod
-              ),
+              products: p.products.map((prod) => {
+                if (idSet.has(prod.id) && prod.status !== validStatus) {
+                  const updated = { ...prod, status: validStatus, dateStatusChanged: today };
+                  changed.push(updated);
+                  return updated;
+                }
+                return prod;
+              }),
             }
           : p
       ),
     };
-    this._save();
+    this._saveLocal();
+    this._pushProductsRemote(projectId, changed);
   },
 
   // ── Stats ──
@@ -349,7 +583,7 @@ const Store = {
     };
   },
 
-  // ── Search (improved with word-boundary matching) ──
+  // ── Search ──
 
   searchProducts(query, projectId = null) {
     const q = query.toLowerCase().trim();
@@ -371,7 +605,6 @@ const Store = {
       }
     }
 
-    // Sort: exact name matches first, then by date
     return results.sort((a, b) => {
       const aExact = a.name.toLowerCase().includes(q) ? 0 : 1;
       const bExact = b.name.toLowerCase().includes(q) ? 0 : 1;
@@ -393,7 +626,15 @@ const Store = {
         return { success: false, error: 'Invalid data format — expected { projects: [...] }' };
       }
       this._data = this._migrateData(parsed);
-      this._save();
+      this._saveLocal();
+
+      // Push imported data to Supabase
+      if (this._sb) {
+        this._pushAll().catch((err) =>
+          console.warn('[Store] Import sync failed:', err.message)
+        );
+      }
+
       return { success: true, projectCount: this._data.projects.length };
     } catch (err) {
       return { success: false, error: `Parse error: ${err.message}` };
@@ -401,11 +642,16 @@ const Store = {
   },
 
   resetData() {
-    this._data = { projects: [], schemaVersion: SCHEMA_VERSION };
-    this._save();
-  },
+    // Clear Supabase first (delete all projects — cascade deletes products)
+    if (this._sb) {
+      this._sb.from('products').delete().neq('id', '')
+        .then(() => this._sb.from('projects').delete().neq('id', ''))
+        .catch((err) => console.warn('[Store] Reset sync failed:', err.message));
+    }
 
-  // ── Storage Info ──
+    this._data = { projects: [], schemaVersion: SCHEMA_VERSION };
+    this._saveLocal();
+  },
 
   getStorageInfo() {
     try {
@@ -418,9 +664,10 @@ const Store = {
         sizeBytes: bytes,
         projectCount: this._data.projects.length,
         productCount,
+        connected: this._connected,
       };
     } catch {
-      return { sizeKb: '0', sizeBytes: 0, projectCount: 0, productCount: 0 };
+      return { sizeKb: '0', sizeBytes: 0, projectCount: 0, productCount: 0, connected: false };
     }
   },
 };

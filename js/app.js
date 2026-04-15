@@ -31,8 +31,17 @@ let searchDebounce = null;
 
 // ── Init ──
 
-function init() {
-  Store.load();
+async function init() {
+  // Bind events immediately so login works while Supabase loads
+  bindGlobalEvents();
+
+  // Listen for storage save errors
+  window.addEventListener('store-save-error', (e) => {
+    showToast(e.detail || 'Failed to save — storage may be full');
+  });
+
+  // Load localStorage instantly (fast first paint), then fetch from Supabase
+  await Store.init();
 
   if (Store.isFirstRun()) {
     const project = Store.createProject(SEED_PROJECT_NAME);
@@ -45,13 +54,18 @@ function init() {
     setTimeout(() => app.classList.remove('animate-in'), 800);
   }
 
-  // Listen for storage save errors
-  window.addEventListener('store-save-error', () => {
-    showToast('Failed to save — storage may be full');
+  // Re-render when another client makes changes
+  Store.onSync(() => {
+    renderView();
+  });
+
+  // Update sync indicator when connection status changes
+  Store.onConnectionChange((connected) => {
+    updateSyncIndicator(connected);
   });
 
   renderView();
-  bindGlobalEvents();
+  updateSyncIndicator(Store.isConnected());
 }
 
 // ── Routing ──
@@ -726,6 +740,14 @@ function closeSearchResults() {
     resultsEl.style.display = 'none';
     resultsEl.innerHTML = '';
   }
+}
+
+function updateSyncIndicator(connected) {
+  const dot = document.getElementById('sync-indicator');
+  if (!dot) return;
+  dot.className = connected ? 'sync-dot sync-connected' : 'sync-dot sync-local';
+  dot.title = connected ? 'Synced — all devices see the same data' : 'Local only — Supabase not connected';
+  dot.setAttribute('aria-label', dot.title);
 }
 
 // ── Go ──
