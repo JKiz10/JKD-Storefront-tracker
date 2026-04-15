@@ -78,6 +78,8 @@ function renderView() {
   } else if (currentView === 'project' && currentProjectId) {
     renderProjectView();
   }
+  // Re-apply sync indicator after DOM rebuild
+  updateSyncIndicator(Store.isConnected());
 }
 
 function renderDashboardView() {

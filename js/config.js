@@ -6,4 +6,4 @@
 // ─────────────────────────────────────────────
 
 export const SUPABASE_URL = 'https://tqexvmunbwgxsbaoywbq.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_secret_aeF_lQUZGaUSlCPXufbwBw_uUSkBKFK';
+export const SUPABASE_ANON_KEY = 'sb_publishable_aZIUPW4YdswIS6u__3EXiw_O0WWHhr-';
