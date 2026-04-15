@@ -5,5 +5,5 @@
 // 3. Run supabase-setup.sql in the SQL Editor
 // ─────────────────────────────────────────────
 
-export const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-export const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+export const SUPABASE_URL = 'https://tqexvmunbwgxsbaoywbq.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_secret_aeF_lQUZGaUSlCPXufbwBw_uUSkBKFK';
